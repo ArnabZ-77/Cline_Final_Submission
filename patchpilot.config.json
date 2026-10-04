@@ -1,0 +1,27 @@
+{
+  "defaultRepo": "demo-app",
+  "maxFixAttempts": 3,
+  "minTriageConfidence": 0.35,
+  "repos": {
+    "demo-app": {
+      "root": ".",
+      "subdir": "demo-app",
+      "testCommand": ["node", "--test"],
+      "testPaths": ["tests"],
+      "protectedPaths": ["server.js", "package.json", "package-lock.json", ".env", ".env.*"],
+      "maxDiffLines": 150,
+      "maxDiffFiles": 3,
+      "baseRef": "HEAD"
+    },
+    "demo-shop": {
+      "root": "../demo-shop",
+      "subdir": "",
+      "testCommand": ["node", "--test"],
+      "testPaths": ["tests"],
+      "protectedPaths": ["server.js", "package.json", "package-lock.json", ".env", ".env.*", "sdk/**"],
+      "maxDiffLines": 150,
+      "maxDiffFiles": 3,
+      "baseRef": "main"
+    }
+  }
+}

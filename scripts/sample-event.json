@@ -1,0 +1,51 @@
+{
+  "event_id": "aaaa1111bbbb2222",
+  "timestamp": "2026-10-04T09:12:00.000Z",
+  "platform": "node",
+  "level": "error",
+  "environment": "development",
+  "transaction": "POST /api/orders/total",
+  "tags": { "repo": "demo-app" },
+  "request": {
+    "method": "POST",
+    "url": "/api/orders/total",
+    "headers": { "content-type": "application/json" }
+  },
+  "exception": {
+    "values": [
+      {
+        "type": "TypeError",
+        "value": "Cannot read properties of null (reading 'price')",
+        "mechanism": { "type": "generic", "handled": false },
+        "stacktrace": {
+          "frames": [
+            {
+              "filename": "server.js",
+              "function": "wrap",
+              "lineno": 36,
+              "colno": 11,
+              "in_app": true,
+              "context_line": "  } catch (err) {"
+            },
+            {
+              "filename": "server.js",
+              "function": "<anonymous>",
+              "lineno": 45,
+              "colno": 20,
+              "in_app": true,
+              "context_line": "    res.json({ total: computeTotal(items) });"
+            },
+            {
+              "filename": "src/lib/total.js",
+              "function": "computeTotal",
+              "lineno": 5,
+              "colno": 23,
+              "in_app": true,
+              "context_line": "    total += item.price * item.quantity;"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

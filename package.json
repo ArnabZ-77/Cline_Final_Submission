@@ -1,0 +1,41 @@
+{
+  "name": "patchpilot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turns a production crash or a plain-English bug report into a tested GitHub pull request, using Cline SDK agents with guardrails enforced in code.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:demo": "cd demo-app && node --test",
+    "ci": "npm run typecheck && npm run test && npm run ci:demo",
+    "ci:demo": "cd demo-app && node --test",
+    "bench": "tsx benchmark/run.ts",
+    "demo": "node demo-app/server.js",
+    "demo:shop": "node ../demo-shop/server.js",
+    "demo:crash": "tsx scripts/crash.ts",
+    "demo:try": "tsx scripts/try.ts",
+    "demo:make-shop": "tsx scripts/make-shop.ts",
+    "demo:reset": "tsx scripts/reset.ts"
+  },
+  "dependencies": {
+    "@cline/agents": "0.0.88",
+    "@cline/core": "0.0.88",
+    "@cline/llms": "0.0.88",
+    "@cline/sdk": "0.0.88",
+    "@cline/shared": "0.0.88",
+    "express": "^5.2.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

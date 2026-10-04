@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PatchPilot</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2230; --line: #2a3140; --text: #e6edf3;
+    --muted: #8b949e; --accent: #58a6ff; --ok: #3fb950; --warn: #d29922; --bad: #f85149;
+    --human: #bc8cff; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: .2px; }
+  header .mode { font-size: 12px; color: var(--muted); }
+  .live { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); display: inline-block; margin-right: 6px; }
+  .live.on { background: var(--ok); }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 12px; padding: 14px 20px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+  .stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  main { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 14px; padding: 0 20px 20px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .panel h2 { font-size: 13px; margin: 0; padding: 10px 14px; border-bottom: 1px solid var(--line); color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .list { max-height: calc(100vh - 230px); overflow: auto; }
+  .item { padding: 10px 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .item:hover { background: var(--panel2); }
+  .item.sel { background: var(--panel2); box-shadow: inset 3px 0 0 var(--accent); }
+  .item .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .m { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; margin-top: 4px; flex-wrap: wrap; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 10px; border: 1px solid currentColor; white-space: nowrap; }
+  .s-done { color: var(--ok); } .s-needs_human { color: var(--human); } .s-failed { color: var(--bad); }
+  .s-running { color: var(--warn); }
+  .detail { padding: 14px 18px; max-height: calc(100vh - 230px); overflow: auto; }
+  .detail h3 { margin: 0 0 4px; font-size: 16px; word-break: break-word; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .bar { display: flex; gap: 4px; margin: 14px 0; flex-wrap: wrap; }
+  .bar div { flex: 1; min-width: 70px; text-align: center; font-size: 11px; padding: 5px 2px; border-radius: 4px; background: var(--panel2); color: var(--muted); border: 1px solid var(--line); }
+  .bar .past { color: var(--text); border-color: #2f5f3a; background: #13261a; }
+  .bar .now { color: var(--bg); background: var(--warn); border-color: var(--warn); font-weight: 600; }
+  .bar .end-done { background: var(--ok); color: var(--bg); border-color: var(--ok); font-weight: 600; }
+  .bar .end-needs_human { background: var(--human); color: var(--bg); border-color: var(--human); font-weight: 600; }
+  .bar .end-failed { background: var(--bad); color: var(--bg); border-color: var(--bad); font-weight: 600; }
+  .kv { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+  .kv div { background: var(--panel2); border-radius: 6px; padding: 7px 10px; }
+  .kv b { display: block; font-variant-numeric: tabular-nums; }
+  .kv span { font-size: 11px; color: var(--muted); }
+  section { margin: 16px 0; }
+  section > h4 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+  .callout { border-left: 3px solid var(--human); background: #221a33; padding: 8px 12px; border-radius: 0 6px 6px 0; }
+  .callout.bad { border-color: var(--bad); background: #2d1517; }
+  .callout.ok { border-color: var(--ok); background: #13261a; }
+  pre { margin: 0; font: 12px/1.45 var(--mono); white-space: pre-wrap; word-break: break-word; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px; max-height: 360px; overflow: auto; }
+  .attempt { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; }
+  .checks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .check { font: 11px var(--mono); padding: 1px 6px; border-radius: 4px; background: var(--panel2); }
+  .check.ok { color: var(--ok); } .check.no { color: var(--bad); }
+  .block { border-left: 3px solid var(--bad); padding: 6px 10px; margin-bottom: 6px; background: #2d1517; border-radius: 0 6px 6px 0; }
+  .tl { font: 12px/1.5 var(--mono); }
+  .tl div { display: grid; grid-template-columns: 74px 64px 1fr; gap: 8px; padding: 2px 0; border-bottom: 1px dashed #222a36; }
+  .tl .ty { color: var(--accent); } .tl .ty-block, .tl .ty-reject, .tl .ty-error { color: var(--bad); } .tl .ty-stage { color: var(--warn); } .tl .ty-accept, .tl .ty-pr { color: var(--ok); }
+  .tl .ts { color: var(--muted); }
+  a { color: var(--accent); }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  form.report { display: grid; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  form.report input, form.report textarea, form.report select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; }
+  form.report button { background: var(--accent); color: #04121f; border: 0; border-radius: 6px; padding: 6px 10px; font-weight: 600; cursor: pointer; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; padding: 0 16px 16px; }
+    .stats { grid-template-columns: repeat(2, 1fr); padding: 12px 16px; }
+    .kv { grid-template-columns: repeat(2, 1fr); }
+    .list, .detail { max-height: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>PatchPilot</h1>
+  <span class="mode" id="mode"></span>
+  <span class="mode"><span class="live" id="live"></span><span id="liveText">connecting…</span></span>
+</header>
+
+<div class="stats">
+  <div class="stat"><b id="stMedian">–</b><span>median time to PR</span></div>
+  <div class="stat"><b id="stFixed">–</b><span>auto-fixed (done / finished)</span></div>
+  <div class="stat"><b id="stBlocks">–</b><span>unsafe actions blocked</span></div>
+  <div class="stat"><b id="stCost">–</b><span>₹ per fix</span></div>
+</div>
+
+<main>
+  <div class="panel">
+    <h2>Incidents</h2>
+    <details>
+      <summary>Report a bug in plain English</summary>
+      <form class="report" id="report">
+        <select name="repo" id="repoSel"></select>
+        <input name="title" placeholder="Title" required maxlength="200" />
+        <textarea name="description" placeholder="What happens, and what should happen?" rows="3" required></textarea>
+        <input name="suspectFile" placeholder="Suspect file (optional), e.g. src/lib/checkout.js" />
+        <button type="submit">File report</button>
+      </form>
+    </details>
+    <div class="list" id="list"><div class="empty">No incidents yet. Crash the demo app or file a report.</div></div>
+  </div>
+  <div class="panel"><div class="detail" id="detail"><div class="empty">Select an incident.</div></div></div>
+</main>
+
+<script>
+"use strict";
+const STAGES = ["received", "triage", "reproduce", "fix", "validate", "review", "pr", "done"];
+const TERMINAL = ["done", "needs_human", "failed"];
+let incidents = [];
+let selectedId = null;
+
+/** Escape every value that reaches innerHTML. */
+function esc(v) {
+  return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+const inr = (n) => "₹" + (Number(n) || 0).toFixed(2);
+const usd = (n) => "$" + (Number(n) || 0).toFixed(4);
+const secs = (ms) => (ms == null ? "–" : ms < 60000 ? (ms / 1000).toFixed(1) + " s" : (ms / 60000).toFixed(1) + " min");
+const time = (iso) => { try { return new Date(iso).toLocaleTimeString(); } catch { return ""; } };
+const stageClass = (s) => (TERMINAL.includes(s) ? "s-" + s : "s-running");
+const stageLabel = (s) => (s === "needs_human" ? "needs human" : s);
+function median(xs) {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b), m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function renderStats() {
+  const done = incidents.filter((i) => i.stage === "done");
+  const finished = incidents.filter((i) => TERMINAL.includes(i.stage));
+  const blocks = incidents.reduce((n, i) => n + (i.guardrailBlocks?.length || 0), 0);
+  const spend = incidents.reduce((n, i) => n + (i.usage?.costInr || 0), 0);
+  document.getElementById("stMedian").textContent = secs(median(done.map((i) => i.durationMs || 0)));
+  document.getElementById("stFixed").textContent = `${done.length} / ${finished.length}`;
+  document.getElementById("stBlocks").textContent = String(blocks);
+  document.getElementById("stCost").textContent = done.length ? inr(spend / done.length) : "–";
+}
+
+function renderList() {
+  const el = document.getElementById("list");
+  if (!incidents.length) {
+    el.innerHTML = '<div class="empty">No incidents yet. Crash the demo app or file a report.</div>';
+    return;
+  }
+  el.innerHTML = incidents
+    .map(
+      (i) => `<div class="item${i.id === selectedId ? " sel" : ""}" data-id="${esc(i.id)}">
+        <div class="t" title="${esc(i.title)}">${esc(i.title)}</div>
+        <div class="m"><span class="badge ${stageClass(i.stage)}">${esc(stageLabel(i.stage))}</span>
+        <span>${esc(i.repo)}</span><span>×${esc(i.occurrences)}</span><span>${inr(i.usage?.costInr)}</span>
+        ${i.guardrailBlocks?.length ? `<span style="color:var(--bad)">${i.guardrailBlocks.length} blocked</span>` : ""}</div>
+      </div>`
+    )
+    .join("");
+}
+
+function stageBar(inc) {
+  const reached = new Set((inc.stageHistory || []).map((s) => s.stage));
+  const terminal = TERMINAL.includes(inc.stage) && inc.stage !== "done" ? inc.stage : null;
+  const cells = STAGES.map((s) => {
+    let cls = "";
+    if (s === inc.stage && s === "done") cls = "end-done";
+    else if (s === inc.stage) cls = "now";
+    else if (reached.has(s)) cls = "past";
+    return `<div class="${cls}">${esc(s)}</div>`;
+  });
+  if (terminal) cells.push(`<div class="end-${esc(terminal)}">${esc(stageLabel(terminal))}</div>`);
+  return `<div class="bar">${cells.join("")}</div>`;
+}
+
+function renderDetail() {
+  const el = document.getElementById("detail");
+  const inc = incidents.find((i) => i.id === selectedId);
+  if (!inc) {
+    el.innerHTML = '<div class="empty">Select an incident.</div>';
+    return;
+  }
+  const u = inc.usage || {};
+  const parts = [];
+  parts.push(`<h3>${esc(inc.title)}</h3>
+    <div class="sub">${esc(inc.id)} · ${esc(inc.repo)} · fingerprint ${esc((inc.fingerprint || "").slice(0, 12))} · first seen ${esc(time(inc.firstSeen))} · ${esc(inc.occurrences)} occurrence(s)</div>`);
+  parts.push(stageBar(inc));
+  parts.push(`<div class="kv">
+    <div><b>${inr(u.costInr)}</b><span>cost (${usd(u.costUsd)})</span></div>
+    <div><b>${esc((u.inputTokens || 0) + (u.outputTokens || 0))}</b><span>tokens (${esc(u.inputTokens || 0)} in / ${esc(u.outputTokens || 0)} out)</span></div>
+    <div><b>${secs(inc.durationMs)}</b><span>duration</span></div>
+    <div><b>${esc(inc.guardrailBlocks?.length || 0)}</b><span>blocked actions</span></div></div>`);
+
+  if (inc.needsHumanReason) parts.push(`<div class="callout"><b>Needs a human.</b> ${esc(inc.needsHumanReason)}</div>`);
+  if (inc.error) parts.push(`<div class="callout bad"><b>Failed.</b> ${esc(inc.error)}</div>`);
+
+  if (inc.triage) {
+    parts.push(`<section><h4>Triage · confidence ${esc(Number(inc.triage.confidence).toFixed(2))}</h4>
+      <div><b>Root cause:</b> ${esc(inc.triage.rootCause)}</div>
+      <div><b>Intended behavior:</b> ${esc(inc.triage.intendedBehavior)}</div>
+      <div class="sub">Suspects: ${(inc.triage.suspects || []).map((s) => esc(s.file + (s.symbol ? ":" + s.symbol : ""))).join(", ") || "none"}</div></section>`);
+  }
+  if (inc.reproduction) {
+    parts.push(`<section><h4>Reproduction test (locked)</h4>
+      <div><code>${esc(inc.reproduction.testFile)}</code> — ${esc(inc.reproduction.testName)}</div>
+      <div class="sub">sha256 ${esc((inc.reproduction.lockedHash || "").slice(0, 16))}… · verified failing before the fix: ${inc.reproduction.verifiedFailing ? "yes" : "no"}</div></section>`);
+  }
+
+  if (inc.pr) {
+    const link = inc.pr.url
+      ? `<a href="${esc(inc.pr.url)}" target="_blank" rel="noopener noreferrer">${esc(inc.pr.url)}</a>`
+      : `<span class="sub">${esc(inc.pr.error || "not opened")}</span>`;
+    parts.push(`<section><h4>Pull request</h4>
+      <div class="callout ok"><b>${esc(inc.pr.title)}</b><br/>branch <code>${esc(inc.pr.branch)}</code> · ${link}</div>
+      <details style="margin-top:8px"><summary>PR body</summary><pre>${esc(inc.pr.body)}</pre></details></section>`);
+  }
+
+  if (inc.attempts?.length) {
+    parts.push(`<section><h4>Fix attempts</h4>${inc.attempts
+      .map((a) => {
+        const status = a.ok ? '<span class="badge s-done">accepted</span>' : a.escalated ? '<span class="badge s-needs_human">escalated</span>' : '<span class="badge s-failed">rejected</span>';
+        const checks = (a.hardChecks || []).map((h) => `<span class="check ${h.ok ? "ok" : "no"}" title="${esc(h.detail || "")}">${h.ok ? "✓" : "✗"} ${esc(h.name)}</span>`).join("");
+        const tests = [
+          a.reproTest ? `repro: ${esc(a.reproTest.summary)}` : "",
+          a.fullSuite ? `full suite: ${esc(a.fullSuite.passed)} passed / ${esc(a.fullSuite.failed)} failed` : "",
+        ].filter(Boolean).join(" · ");
+        return `<div class="attempt"><b>Attempt ${esc(a.index)}</b> ${status} <span class="sub">${esc((a.files || []).join(", "))} ${secs(a.durationMs)}</span>
+          ${tests ? `<div class="sub">${tests}</div>` : ""}
+          ${a.reason ? `<pre style="margin-top:6px">${esc(a.reason)}</pre>` : ""}
+          ${checks ? `<div class="checks">${checks}</div>` : ""}
+          ${a.diff ? `<details style="margin-top:6px"><summary>diff</summary><pre>${esc(a.diff)}</pre></details>` : ""}</div>`;
+      })
+      .join("")}</section>`);
+  }
+
+  if (inc.review) {
+    parts.push(`<section><h4>Critic · confidence ${esc(Number(inc.review.confidence).toFixed(2))}</h4>
+      <div>${inc.review.addressesRootCause ? "Addresses the root cause." : "Does not clearly address the root cause."}
+      ${inc.review.behaviorChangeOutsideCrashPath ? " Behavior change outside the crash path: " + esc(inc.review.behaviorChangeOutsideCrashPath) : ""}</div>
+      ${(inc.review.risks || []).length ? `<ul>${inc.review.risks.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
+      ${inc.review.openQuestion ? `<div class="sub">Open question: ${esc(inc.review.openQuestion)}</div>` : ""}</section>`);
+  }
+
+  if (inc.guardrailBlocks?.length) {
+    parts.push(`<section><h4>Guardrail blocks</h4>${inc.guardrailBlocks
+      .map((b) => `<div class="block"><b>${esc(b.stage)} / ${esc(b.tool)}</b> <span class="sub">${esc(time(b.ts))}</span>
+        ${b.input && b.input.path ? `<code>${esc(b.input.path)}</code>` : ""}<div>${esc(b.reason)}</div></div>`)
+      .join("")}</section>`);
+  }
+
+  const tl = [...(inc.timeline || [])].reverse().slice(0, 400);
+  parts.push(`<section><h4>Timeline (newest first)</h4><div class="tl">${tl
+    .map((e) => `<div><span class="ts">${esc(time(e.ts))}</span><span class="ty ty-${esc(e.type)}">${esc(e.type)}</span><span>${esc(e.text)}</span></div>`)
+    .join("")}</div></section>`);
+
+  el.innerHTML = parts.join("");
+}
+
+function render() {
+  renderStats();
+  renderList();
+  renderDetail();
+}
+
+async function refresh() {
+  try {
+    const res = await fetch("/api/incidents");
+    const data = await res.json();
+    incidents = data.incidents || [];
+    if (!selectedId && incidents.length) selectedId = incidents[0].id;
+    render();
+  } catch (err) {
+    console.warn("refresh failed", err);
+  }
+}
+
+// Coalesce bursts of events (a stage can log dozens of lines) into one refresh.
+let pending = null;
+function scheduleRefresh() {
+  if (pending) return;
+  pending = setTimeout(() => { pending = null; refresh(); }, 150);
+}
+
+function setLive(on, text) {
+  document.getElementById("live").classList.toggle("on", on);
+  document.getElementById("liveText").textContent = text;
+}
+
+let source = null;
+function connect() {
+  if (source) source.close();
+  source = new EventSource("/api/stream");
+  source.addEventListener("ready", () => { setLive(true, "live"); refresh(); });
+  source.addEventListener("incident", scheduleRefresh);
+  source.onerror = () => {
+    setLive(false, "reconnecting…");
+    // EventSource retries on its own while CONNECTING; if it gave up, start over.
+    if (source.readyState === EventSource.CLOSED) setTimeout(connect, 2000);
+  };
+}
+
+document.getElementById("list").addEventListener("click", (e) => {
+  const item = e.target.closest(".item");
+  if (!item) return;
+  selectedId = item.dataset.id;
+  render();
+});
+
+document.getElementById("report").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const body = Object.fromEntries(new FormData(form).entries());
+  if (!body.suspectFile) delete body.suspectFile;
+  const res = await fetch("/api/incidents/manual", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (data.id) { selectedId = data.id; form.reset(); refresh(); }
+});
+
+fetch("/api/config").then((r) => r.json()).then((cfg) => {
+  document.getElementById("mode").textContent = (cfg.mock ? "mock mode" : "live models") + (cfg.openPr ? " · opens draft PRs" : " · PRs not opened");
+  const sel = document.getElementById("repoSel");
+  sel.innerHTML = Object.keys(cfg.repos || {}).map((r) => `<option value="${esc(r)}"${r === cfg.defaultRepo ? " selected" : ""}>${esc(r)}</option>`).join("");
+}).catch(() => {});
+
+connect();
+refresh();
+</script>
+</body>
+</html>
